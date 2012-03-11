@@ -1,4 +1,5 @@
 class MoviesController < ApplicationController
+  @@remember = [:ratings, :sort]
 
   def show
     id = params[:id] # retrieve movie ID from URI route
@@ -7,8 +8,16 @@ class MoviesController < ApplicationController
   end
 
   def index
-    @ratings = params[:ratings] || {}
-  	@sort = params[:sort] || :id
+    session.merge!(@@remember.inject({}) {|h,k| h[k.to_s] = params[k] if params.key? k; h})
+    session.delete(:ratings) if (params.key?(:commit) && !params.key?(:ratings))
+    @ratings = session[:ratings] || {}
+  	@sort = session[:sort] || :id
+    @@remember.each {|k|
+      if (session.key?(k) && !params.key?(k)) then
+        redirect_to movies_path(:sort => @sort, :ratings => @ratings)
+        return
+      end
+    }
     @movies = Movie.all(:order => @sort, :conditions => (['rating IN (?)', @ratings.keys] if @ratings.length > 0))
     @all_ratings = Movie.ratings
   end
